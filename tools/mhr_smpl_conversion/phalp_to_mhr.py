@@ -84,6 +84,8 @@ os.makedirs(example_output_dir, exist_ok=True)
 phalp_data = joblib.load(input_phalp_poses_file)
 num_frames = len(phalp_data.keys())
 
+print("TOTAL FRAMES:", num_frames)
+
 smpl_parameters = {}
 # Can't we just get these from the PHALP output rather than fudging them?
 #smpl_parameters["global_orient"] = np.zeros((num_frames, 3))
@@ -97,7 +99,13 @@ for i, frame_image_id in enumerate(phalp_data):
     #smpl_pose = phalp_data[frame_image_id]["pose"][0] # PHALP needs to be run in visualization mode for this
     #global_orients.append(smpl_dict["global_orient"][0]) # can do [0] without losing anything....
     #print("shape of dict global_orient", smpl_dict["global_orient"][0].shape)
-    global_orients.append(np.zeros((3, 3)))
+    global_orient_back, _ = cv2.Rodrigues(smpl_dict["global_orient"][0])
+    #print("shape of post Rodrigues global_orient", global_orient_back.shape)
+    #global_orients.append(np.zeros((3, 3)))
+    global_orient_back = global_orient_back.T
+    #flip_mat = np.diag(np.full(3, -1))
+    #global_orient_back = np.matmul(global_orient_back, flip_mat)
+    global_orients.append(global_orient_back)
     #print("Shape of dict betas", smpl_dict["betas"].shape)
     betas.append(smpl_dict["betas"])
     #betas.append(np.random.randn(10))
@@ -109,11 +117,11 @@ for i, frame_image_id in enumerate(phalp_data):
     body_rvecs = []
 
     for body_pose in smpl_dict["body_pose"]:
-        rvec_back, jacobian = cv2.Rodrigues(body_pose)
+        rvec_back, _ = cv2.Rodrigues(body_pose)
         #print(rvec_back.T.tolist()[0])
         body_rvecs.append(rvec_back.T.tolist()[0])
 
-    body_poses.append(body_rvecs[2:])
+    body_poses.append(body_rvecs)
     # What the heck is this
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
     #"body_pose": np.concatenate(
