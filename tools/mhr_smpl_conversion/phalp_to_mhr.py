@@ -145,9 +145,10 @@ print("global_orient", smpl_parameters["global_orient"].shape)
 print("body_pose", smpl_parameters["body_pose"].shape)
 print("betas", smpl_parameters["betas"].shape)
 
+smpl_vertices = []
 num_frames = smpl_parameters["body_pose"].shape[0]
 for i in range(num_frames):
-    smplx_vertices = (
+    frame_smpl_vertices = (
         smpl_model(
             global_orient=smpl_parameters["global_orient"][i : i + 1],
             body_pose=smpl_parameters["body_pose"][i : i + 1],
@@ -157,35 +158,51 @@ for i in range(num_frames):
         .cpu()
         .numpy()[0]
     )
-    smplx_mesh = trimesh.Trimesh(
-        smplx_vertices, smpl_model.faces, process=False
+    smpl_mesh = trimesh.Trimesh(
+        frame_smpl_vertices, smpl_model.faces, process=False
     )
-    smplx_mesh.export(f"{output_dir}/{i:03d}_smpl.ply")
+    smpl_mesh.export(f"{output_dir}/{i:03d}_smpl.ply")
+    smpl_vertices.append(frame_smpl_vertices)
 
-    print(
-        "\nConverting SMPL parameters to MHR with PyMomentum"
-    )
+smpl_vertices = np.array(smpl_vertices)
 
-    try:
-        conversion_results = converter.convert_smpl2mhr(
-            smpl_vertices=smplx_vertices,
-            smpl_parameters=smpl_parameters,
-            single_identity=True,
-            return_mhr_meshes=True,
-            return_mhr_vertices=True,
-            return_mhr_parameters=True,
-            return_fitting_errors=True,
-        )
-        print("Conversion errors:")
-        print(conversion_results.result_errors)
+print(
+    "\nConverting SMPL to MHR with PyMomentum"
+)
 
-        mesh = conversion_results.result_meshes[0]
-        mesh.vertices /= 100.0
-    except Exception as e:
-        print("Error in conversion:", e)
+# It's better to run these as a big batch rather than one at a time, because 
+#   PyMomentum is able to benefit from some tracking that it apparently does.
+conversion_results = converter.convert_smpl2mhr(
+    smpl_vertices=smpl_vertices,
+    smpl_parameters=smpl_parameters,
+    single_identity=True,
+    return_mhr_meshes=True,
+    return_mhr_vertices=True,
+    return_mhr_parameters=True,
+    return_fitting_errors=True,
+)
+print("Conversion errors:")
+print(conversion_results.result_errors)
+
+for i, mesh in enumerate(conversion_results.result_meshes):
+    #mesh = conversion_results.result_meshes[0]
+    mesh.vertices /= 100.0
+    #except Exception as e:
+    #    print("Error in conversion:", e)
 
     # Save the results (or reuse the previous one if an error occurred)
     mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.ply")
 
-    print("Shape of results vertices", conversion_results.result_vertices.shape)
-    print("Shape of lbs model params", conversion_results.result_parameters["lbs_model_params"].shape)
+    #print("Shape of results vertices", conversion_results.result_vertices.shape)
+    #print("Shape of lbs model params", conversion_results.result_parameters["lbs_model_params"].shape)
+    #print("Shape of identity_coeffs", conversion_results.result_parameters["identity_coeffs"].shape)
+    #print("Shape of face_expr_coeffs", conversion_results.result_parameters["face_expr_coeffs"].shape)
+
+# Will this bundle them together?
+mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["identity_coeffs"], conversion_results.result_parameters["lbs_model_params"], conversion_results.result_parameters["face_expr_coeffs"])
+
+print("Shape of MHR vertices", mhr_vertices.shape)
+print("Shape of MHR skeleton_state", skeleton_state.shape)
+
+import sys
+sys.exit()

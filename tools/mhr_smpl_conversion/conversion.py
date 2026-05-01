@@ -129,7 +129,8 @@ class ConversionConstants:
     # Number of intermediate steps when interpolating SMPL parameters from zero
     # to target values during failure case reprocessing. More steps provide
     # smoother transitions but increase computation time.
-    DEFAULT_INTERPOLATION_STEPS = 4
+    #DEFAULT_INTERPOLATION_STEPS = 4
+    DEFAULT_INTERPOLATION_STEPS = 23 # PMB
 
     # Frame selection parameters
     # Multiplier for determining when to subsample frames during identity estimation.
@@ -1168,7 +1169,8 @@ class Conversion:
             # Step 4.1: Interpolate SMPL parameters from all zero to target with default interpolation steps
             interpolation_steps = ConversionConstants.DEFAULT_INTERPOLATION_STEPS
             interpolated_params = {}
-            alphas = torch.linspace(0, 1, interpolation_steps + 1).to(
+            #alphas = torch.linspace(0, 1, interpolation_steps + 1).to( # PMB
+            alphas = torch.linspace(0, 1, interpolation_steps).to(
                 self._DEVICE
             )  # [steps+1]
             for key, value in smpl_params.items():
