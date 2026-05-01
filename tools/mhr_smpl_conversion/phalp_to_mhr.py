@@ -103,8 +103,9 @@ for i, frame_image_id in enumerate(phalp_data):
     #print("shape of post Rodrigues global_orient", global_orient_back.shape)
     #global_orients.append(np.zeros((3, 3)))
     global_orient_back = global_orient_back.T
-    #flip_mat = np.diag(np.full(3, -1))
-    #global_orient_back = np.matmul(global_orient_back, flip_mat)
+    flip_mat = np.diag(np.full(3, 1))
+    flip_mat[2,2] = -1
+    global_orient_back = np.matmul(global_orient_back, flip_mat)
     global_orients.append(global_orient_back)
     #print("Shape of dict betas", smpl_dict["betas"].shape)
     betas.append(smpl_dict["betas"])
@@ -122,6 +123,7 @@ for i, frame_image_id in enumerate(phalp_data):
         body_rvecs.append(rvec_back.T.tolist()[0])
 
     body_poses.append(body_rvecs)
+
     # What the heck is this
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
     #"body_pose": np.concatenate(
@@ -164,24 +166,26 @@ for i in range(num_frames):
         "\nConverting SMPL parameters to MHR with PyMomentum"
     )
 
-    conversion_results = converter.convert_smpl2mhr(
-        smpl_vertices=smplx_vertices,
-        smpl_parameters=smpl_parameters,
-        single_identity=True,
-        return_mhr_meshes=True,
-        return_mhr_vertices=True,
-        return_mhr_parameters=True,
-        return_fitting_errors=True,
-    )
+    try:
+        conversion_results = converter.convert_smpl2mhr(
+            smpl_vertices=smplx_vertices,
+            smpl_parameters=smpl_parameters,
+            single_identity=True,
+            return_mhr_meshes=True,
+            return_mhr_vertices=True,
+            return_mhr_parameters=True,
+            return_fitting_errors=True,
+        )
+        print("Conversion errors:")
+        print(conversion_results.result_errors)
 
-    print("Conversion errors:")
-    print(conversion_results.result_errors)
+        mesh = conversion_results.result_meshes[0]
+        mesh.vertices /= 100.0
+    except Exception as e:
+        print("Error in conversion:", e)
 
-    # Save the results
-    mesh = conversion_results.result_meshes[0]
-    mesh.vertices /= 100.0
+    # Save the results (or reuse the previous one if an error occurred)
     mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.ply")
 
-    # XXX also should examine and save conversion_results.result_vertices
     print("Shape of results vertices", conversion_results.result_vertices.shape)
     print("Shape of lbs model params", conversion_results.result_parameters["lbs_model_params"].shape)
