@@ -33,7 +33,10 @@ from conversion import Conversion
 
 _OUTPUT_DIR = "./tmp_results"  # Directory to store conversion results
 
-SMPL_MODEL_FILE = "/srv/mime/software/MHR/data/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl"
+# Can change to match gender of dancer, if desired
+#SMPL_MODEL_FILE = "/srv/mime/software/MHR/data/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl"
+SMPL_MODEL_FILE = "/srv/mime/software/MHR/data/basicmodel_f_lbs_10_207_0_v1.1.0.pkl"
+#SMPL_MODEL_FILE = "/srv/mime/software/MHR/data/basicmodel_m_lbs_10_207_0_v1.1.0.pkl"
 
 smpl_model = None
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -181,7 +184,7 @@ conversion_results = converter.convert_smpl2mhr(
     return_mhr_parameters=True,
     return_fitting_errors=True,
 )
-print("Conversion errors:")
+print("Conversion errors, out of total", conversion_results.result_errors.shape)
 print(conversion_results.result_errors)
 
 for i, mesh in enumerate(conversion_results.result_meshes):
@@ -204,5 +207,5 @@ mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["i
 print("Shape of MHR vertices", mhr_vertices.shape)
 print("Shape of MHR skeleton_state", skeleton_state.shape)
 
-import sys
-sys.exit()
+output_fn = os.path.basename(input_phalp_poses_file).replace(".pkl",".mhr.pkl")
+joblib.dump({"mhr_vertices": mhr_vertices, "skeleton_state": skeleton_state}, f"{example_output_dir}/{output_fn}")

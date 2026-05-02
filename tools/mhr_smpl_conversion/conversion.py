@@ -109,7 +109,9 @@ from utils import (
 _NUM_VERTICES_SMPL = 6890
 _NUM_VERTICES_SMPLX = 10475
 
+#logging.basicConfig(level=logging.DEBUG) # PMB
 logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG) # PMB
 
 
 class ConversionConstants:
@@ -129,8 +131,7 @@ class ConversionConstants:
     # Number of intermediate steps when interpolating SMPL parameters from zero
     # to target values during failure case reprocessing. More steps provide
     # smoother transitions but increase computation time.
-    #DEFAULT_INTERPOLATION_STEPS = 4
-    DEFAULT_INTERPOLATION_STEPS = 23 # PMB
+    DEFAULT_INTERPOLATION_STEPS = 4
 
     # Frame selection parameters
     # Multiplier for determining when to subsample frames during identity estimation.
@@ -1169,10 +1170,13 @@ class Conversion:
             # Step 4.1: Interpolate SMPL parameters from all zero to target with default interpolation steps
             interpolation_steps = ConversionConstants.DEFAULT_INTERPOLATION_STEPS
             interpolated_params = {}
-            #alphas = torch.linspace(0, 1, interpolation_steps + 1).to( # PMB
             alphas = torch.linspace(0, 1, interpolation_steps).to(
                 self._DEVICE
             )  # [steps+1]
+
+            # PMB
+            smpl_params["body_pose"] = smpl_params["body_pose"].flatten()
+
             for key, value in smpl_params.items():
                 interpolated_params[key] = alphas[..., None] * value.to(
                     self._DEVICE
@@ -1182,7 +1186,7 @@ class Conversion:
                 interpolated_params = complete_smplx_parameters(
                     interpolated_params, interpolation_steps + 1, self._DEVICE
                 )
-
+                
             # Generate SMPL vertices for this interpolation step
             with torch.no_grad():
                 smpl_output = self._smpl_model(**interpolated_params)
