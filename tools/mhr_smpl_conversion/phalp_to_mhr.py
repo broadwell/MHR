@@ -90,7 +90,7 @@ num_frames = len(phalp_data.keys())
 print("TOTAL FRAMES:", num_frames)
 
 smpl_parameters = {}
-# Can't we just get these from the PHALP output rather than fudging them?
+# Prefer to get these from the PHALP output rather than fabricating them
 #smpl_parameters["global_orient"] = np.zeros((num_frames, 3))
 #smpl_parameters["betas"] = np.random.randn(num_frames, 10)
 global_orients = []
@@ -99,41 +99,24 @@ body_poses = []
 for i, frame_image_id in enumerate(phalp_data):
     # This is where it could handle more than one pose per frame
     smpl_dict = phalp_data[frame_image_id]["smpl"][0]
-    #smpl_pose = phalp_data[frame_image_id]["pose"][0] # PHALP needs to be run in visualization mode for this
-    #global_orients.append(smpl_dict["global_orient"][0]) # can do [0] without losing anything....
-    #print("shape of dict global_orient", smpl_dict["global_orient"][0].shape)
     global_orient_back, _ = cv2.Rodrigues(smpl_dict["global_orient"][0])
-    #print("shape of post Rodrigues global_orient", global_orient_back.shape)
-    #global_orients.append(np.zeros((3, 3)))
     global_orient_back = global_orient_back.T
     flip_mat = np.diag(np.full(3, 1))
-    flip_mat[2,2] = -1
+    flip_mat[2,2] = -1 # Need to flip the Z axis orientations
     global_orient_back = np.matmul(global_orient_back, flip_mat)
     global_orients.append(global_orient_back)
-    #print("Shape of dict betas", smpl_dict["betas"].shape)
     betas.append(smpl_dict["betas"])
-    #betas.append(np.random.randn(10))
-    #body_poses.append(np.concatenate([smpl_pose[3:66], np.zeros_like(smpl_pose[:6])], axis=-1))
-    #print("shape of body_pose", smpl_dict["body_pose"].shape)
-    #print("shape of global_orient", smpl_dict["global_orient"].shape)
-    #body_poses.append(smpl_dict["body_pose"])
 
     body_rvecs = []
 
     for body_pose in smpl_dict["body_pose"]:
         rvec_back, _ = cv2.Rodrigues(body_pose)
-        #print(rvec_back.T.tolist()[0])
         body_rvecs.append(rvec_back.T.tolist()[0])
 
     body_poses.append(body_rvecs)
 
     # What the heck is this
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
-    #"body_pose": np.concatenate(
-    #    [smplx_full_poses[:, 3:66], np.zeros_like(smplx_full_poses[:, :6])],
-    #    axis=-1,
-    #),
-    #body_poses.append(smpl_dict["body_pose"].flatten()[:69])
 
 smpl_parameters["betas"] = np.array(betas)
 smpl_parameters["global_orient"] = np.array(global_orients)
@@ -144,9 +127,9 @@ for k, v in smpl_parameters.items():
         torch.from_numpy(v).to(torch.float32).to(device)
     )
    
-print("global_orient", smpl_parameters["global_orient"].shape)
-print("body_pose", smpl_parameters["body_pose"].shape)
-print("betas", smpl_parameters["betas"].shape)
+print("shape of global_orient", smpl_parameters["global_orient"].shape)
+print("shape of body_pose", smpl_parameters["body_pose"].shape)
+print("shape of betas", smpl_parameters["betas"].shape)
 
 smpl_vertices = []
 num_frames = smpl_parameters["body_pose"].shape[0]
@@ -184,28 +167,28 @@ conversion_results = converter.convert_smpl2mhr(
     return_mhr_parameters=True,
     return_fitting_errors=True,
 )
-print("Conversion errors, out of total", conversion_results.result_errors.shape)
-print(conversion_results.result_errors)
+print("Total conversions (including errors):", conversion_results.result_errors.shape)
 
 for i, mesh in enumerate(conversion_results.result_meshes):
-    #mesh = conversion_results.result_meshes[0]
-    mesh.vertices /= 100.0
-    #except Exception as e:
-    #    print("Error in conversion:", e)
+    # Save the results 
+    mesh.vertices /= 100.0 # Why so large initially?
+    #mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.ply")
+    mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.obj")
 
-    # Save the results (or reuse the previous one if an error occurred)
-    mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.ply")
-
-    #print("Shape of results vertices", conversion_results.result_vertices.shape)
-    #print("Shape of lbs model params", conversion_results.result_parameters["lbs_model_params"].shape)
-    #print("Shape of identity_coeffs", conversion_results.result_parameters["identity_coeffs"].shape)
-    #print("Shape of face_expr_coeffs", conversion_results.result_parameters["face_expr_coeffs"].shape)
-
-# Will this bundle them together?
 mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["identity_coeffs"], conversion_results.result_parameters["lbs_model_params"], conversion_results.result_parameters["face_expr_coeffs"])
 
-print("Shape of MHR vertices", mhr_vertices.shape)
-print("Shape of MHR skeleton_state", skeleton_state.shape)
+# mhr_vertices are 18439 3d-coords (18439 = LOD 1, which seems to be the default)
+# sekelton_state is 127 8-element vectors, so 8 for each joint. It's not obvious what these elements are.
+#  The paper suggests it should be a 7-element vector consisting of 
+# conversion_results includes result_parameters, which consists of
+#   'lbs_model_params' # 204 per pose - 136 pose parameters + 68 skeletal transformation params
+#   'identity_coeffs' # 45 per pose (body (20), head (20), hand (5) blendshapes)
+#   'face_expr_coeffs' # 72 per pose
+# it also has result_meshes, which is one Trimesh object per pose, which also has 18439 vertices
+#   (can be exported as .obj and then converted to FBX via Blender, but without the armature)
+# and it has result_vertices, which is a list of 18439 3d-coords, one per pose, identical to 
+#   mhr_vertices, except with more significant digits
 
 output_fn = os.path.basename(input_phalp_poses_file).replace(".pkl",".mhr.pkl")
 joblib.dump({"mhr_vertices": mhr_vertices, "skeleton_state": skeleton_state}, f"{example_output_dir}/{output_fn}")
+#joblib.dump({"mhr_vertices": mhr_vertices, "skeleton_state": skeleton_state, "conversion_results": conversion_results}, f"{example_output_dir}/{output_fn}")

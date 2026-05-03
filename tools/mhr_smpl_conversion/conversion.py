@@ -109,9 +109,9 @@ from utils import (
 _NUM_VERTICES_SMPL = 6890
 _NUM_VERTICES_SMPLX = 10475
 
-#logging.basicConfig(level=logging.DEBUG) # PMB
+logging.basicConfig(level=logging.INFO) # PMB
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG) # PMB
+logger.setLevel(logging.INFO) # PMB
 
 
 class ConversionConstants:
@@ -599,7 +599,7 @@ class Conversion:
             device=self._DEVICE,
         )
 
-        logger.info(f"Converting meshes from {direction} with barycentric mapping...")
+        logger.debug(f"Converting meshes from {direction} with barycentric mapping...")
         disable_tqdm = len(getattr(tqdm, "_instances", [])) > 0
         for batch_start in tqdm(
             range(0, num_frames, self._batch_size), disable=disable_tqdm
@@ -795,7 +795,7 @@ class Conversion:
 
         if single_identity:
             # Select frames for body shape estimation.
-            logger.info("Select frames for identity estimation.")
+            logger.debug("Select frames for identity estimation.")
             selected_frames = self._select_frames_for_identity_estimation(
                 target_vertices,
                 self._mhr_model.character.mesh.vertices,
@@ -827,7 +827,7 @@ class Conversion:
             }
 
             # Fit model per-frame for identity estimation
-            logger.info("Fit frames for identity estimation.")
+            logger.debug("Fit frames for identity estimation.")
             for frame_idx, target_verts in enumerate(
                 tqdm(target_vertices_for_identity)
             ):
@@ -849,7 +849,7 @@ class Conversion:
                     fitting_result["face_expr_coeffs"]
                 )
             # Weighted average the identity parameters.
-            logger.info("Get weighted average of body shapes.")
+            logger.debug("Get weighted average of body shapes.")
             errors = self._s2m_evaluate_conversion_error(
                 identity_parameter_results, target_vertices_for_identity
             )
@@ -869,7 +869,7 @@ class Conversion:
             identity_parameter_mask = self._get_identity_parameter_mask()
 
         # Fit model to each frame. If single identity, set the pre-estimated identity as constant.
-        logger.info("Fit model to all the target frames one by one.")
+        logger.debug("Fit model to all the target frames one by one.")
         for i in tqdm(range(num_frames)):
             target_verts = target_vertices[i]
             if not is_tracking:
@@ -1040,7 +1040,7 @@ class Conversion:
         num_samples = mhr_parameters["lbs_model_params"].shape[0]
 
         if verbose:
-            logger.info("Converting MHR parameters to meshes...")
+            logger.debug("Converting MHR parameters to meshes...")
         for batch_start in tqdm(range(0, num_samples, self._batch_size)):
             batch_end = min(batch_start + self._batch_size, num_samples)
             batch_parameters = get_batched_parameters(
@@ -1083,7 +1083,7 @@ class Conversion:
         num_samples = smpl_parameters["betas"].shape[0]
 
         if verbose:
-            logger.info("Converting SMPL parameters to meshes...")
+            logger.debug("Converting SMPL parameters to meshes...")
         for batch_start in tqdm(range(0, num_samples, self._batch_size)):
             batch_end = min(batch_start + self._batch_size, num_samples)
             batch_parameters = get_batched_parameters(
@@ -1140,7 +1140,7 @@ class Conversion:
         failure_indices = np.where(failure_mask)[0]
 
         if len(failure_indices) == 0:
-            logger.info("No failure cases detected. Returning original results.")
+            logger.debug("No failure cases detected. Returning original results.")
             return fitting_parameter_results, errors
         else:
             logger.info(
@@ -1267,7 +1267,7 @@ class Conversion:
                 )
 
         # Step 5: Return updated conversion results
-        logger.info("Failure case reprocessing completed.")
+        logger.debug("Failure case reprocessing completed.")
         return (
             fitting_parameter_results,
             errors,
@@ -1355,12 +1355,12 @@ class Conversion:
             process_every_n_frames = (
                 original_num_frames // ConversionConstants.SUBSAMPLING_MULTIPLIER
             )
-            logger.info(
+            logger.debug(
                 f"There are too many ({original_num_frames}) frames."
                 f"Subsampling every {process_every_n_frames} frame for identity estimation.",
             )
             target_vertices = target_vertices[::process_every_n_frames]
-            logger.info(
+            logger.debug(
                 f"This leads to {target_vertices.shape[0]} frames for identity estimation."
             )
 
