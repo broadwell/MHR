@@ -1,6 +1,6 @@
 [project]
 authors = [{name = "MHR Contributors"}]
-dependencies = ["torch", "trimesh>=4.8.3,<5"]
+dependencies = ["torch", "trimesh>=4.12.1,<5", "scikit-learn>=1.8.0,<2", "tqdm>=4.67.3,<5", "smplx>=0.1.28,<0.2"]
 name = "mhr"
 requires-python = ">= 3.11"
 dynamic = ["version"]
@@ -53,6 +53,9 @@ hatch-vcs = "*"
 
 [tool.pixi.dependencies]
 pymomentum = ">=0.1.90"
+python = ">=3.12.13,<3.14"
+opencv = ">=4.13.0,<5"
+pymeshlab = ">=2025.7,<2026"
 
 [tool.pixi.feature.py312.dependencies]
 python = "3.12.*"
