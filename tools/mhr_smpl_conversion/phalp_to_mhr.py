@@ -115,7 +115,7 @@ for i, frame_image_id in enumerate(phalp_data):
 
     body_poses.append(body_rvecs)
 
-    # What the heck is this
+    # What the heck is this (from original conversion.py)
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
 
 smpl_parameters["betas"] = np.array(betas)
@@ -172,7 +172,6 @@ print("Total conversions (including errors):", conversion_results.result_errors.
 for i, mesh in enumerate(conversion_results.result_meshes):
     # Save the results 
     #mesh.vertices /= 100.0 # This doesn't seem to do anything?
-    #mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.ply")
     mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.obj")
 
 mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["identity_coeffs"], conversion_results.result_parameters["lbs_model_params"], conversion_results.result_parameters["face_expr_coeffs"])
@@ -180,16 +179,49 @@ mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["i
 # mhr_vertices are 18439 3d-coords (18439 = LOD 1, which seems to be the default). Not included because this
 #  data is redundant with conversion_results['result_vertices'] (and also probably 
 #  conversion_results['result_meshes'])
-# sekelton_state is 127 8-element vectors, so 8 for each joint. It's not obvious what these elements are.
+# sekelton_state is 127 8-element vectors, so 8 for each joint. The visualization notebook indicates that
+#   the first 3 elements of each vector are the joint locations, e.g.,
+#   > joint_locations = skel_state[..., :3] / 100.0
+#   and the next 3 are the local coordinate orientations:
+#   > joint_orientations = skel_state[..., 3:7]
+#   > joint_orientations = R.Rotation.from_quat(joint_orientations).as_matrix()
+#   Not sure what the last 2? elements are... One should be a scale factor, according to the MHR paper.
 # conversion_results includes result_parameters, which consists of
 #   'lbs_model_params' # 204 per pose - 136 pose parameters + 68 skeletal transformation params
-#   'identity_coeffs' # 45 per pose (body (20), head (20), hand (5) blendshapes)
+#   'identity_coeffs' # 45 per pose - body (20), head (20), hand (5) blendshapes
 #   'face_expr_coeffs' # 72 per pose
 # it also has result_meshes, which is one Trimesh object per pose, which also has 18439 vertices
 #   (can be exported as .obj and then converted to FBX via Blender, but without the armature)
 # and it has result_vertices, which is a list of 18439 3d-coords, one per pose, identical to 
-#   mhr_vertices, except with more significant digits
+#   mhr_vertices, except with more significant digits (which are probably noise)
 
 output_fn = os.path.basename(input_phalp_poses_file).replace(".pkl",".mhr.pkl")
 joblib.dump({"skeleton_state": skeleton_state, "conversion_results": conversion_results}, f"{example_output_dir}/{output_fn}")
-#joblib.dump({"mhr_vertices": mhr_vertices, "skeleton_state": skeleton_state, "conversion_results": conversion_results}, f"{example_output_dir}/{output_fn}")
+
+# Try to export the animation as .glb/gltf and .fbx
+
+glb_file = "./exported_animation.glb"
+try:
+    mhr_model.save_to_gltf(
+        glb_file,
+        conversion_results.result_parameters["identity_coeffs"],
+        conversion_results.result_parameters["lbs_model_params"],
+        conversion_results.result_parameters["face_expr_coeffs"],
+        fps=30,
+    )
+    print(f"Saved animation to {glb_file}")
+except Exception as e:
+    print(f"An error occurred when exporting to gltf: {e}")
+
+fbx_file = "./exported_animation.fbx"
+try:
+    mhr_model.save_to_fbx(
+        fbx_file,
+        conversion_results.result_parameters["identity_coeffs"],
+        conversion_results.result_parameters["lbs_model_params"],
+        conversion_results.result_parameters["face_expr_coeffs"],
+        fps=30,
+    )
+    print(f"Saved animation to {fbx_file}")
+except Exception as e:
+    print(f"An error occurred when exporting to fbx: {e}")
