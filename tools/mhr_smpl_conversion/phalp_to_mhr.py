@@ -97,35 +97,33 @@ global_orients = []
 betas = []
 body_poses = []
 
-# Coordinates from PHALP are in y-forward, z-down, x-right orientation relative 
-# to the camera initially. For the conversion model to work, the z axis must be 
-# flipped by inverting the Z values in the gobal_orients vectors.
-# Or we could try just swapping the Y and Z values in the body_pose vectors?
+# Coordinates from PHALP are in y-forward, inverted z-up, x-right orientation 
+# relative to the camera initially. 
 for i, frame_image_id in enumerate(phalp_data):
     # This is where it could handle more than one pose per frame
     smpl_dict = phalp_data[frame_image_id]["smpl"][0]
     global_orient_back, _ = cv2.Rodrigues(smpl_dict["global_orient"][0])
     global_orient_back = global_orient_back.T
-    flip_mat = np.diag(np.full(3, 1))
-    flip_mat[2,2] = -1 # Need to flip the Z axis orientations
-    global_orient_back = np.matmul(global_orient_back, flip_mat)
+    #flip_mat = np.diag(np.full(3, 1))
+    #flip_mat[2,2] = -1 # Need to flip the Z axis orientations
+    #global_orient_back = np.matmul(global_orient_back, flip_mat)
+
     global_orients.append(global_orient_back)
+    #global_orients.append(global_orient_reordered)
     betas.append(smpl_dict["betas"])
 
     body_rvecs = []
 
     for body_pose in smpl_dict["body_pose"]:
-        #body_reordered = body_pose[:, [0, 2, 1]]
-
         rvec_back, _ = cv2.Rodrigues(body_pose)
-        #rvec_back, _ = cv2.Rodrigues(body_reordered)
         body_rvecs.append(rvec_back.T.tolist()[0])
 
     body_poses.append(body_rvecs)
 
     # What the heck is this (from original conversion.py)
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
-    break
+    if i > 100:
+        break
  
 smpl_parameters["betas"] = np.array(betas)
 smpl_parameters["global_orient"] = np.array(global_orients)
@@ -157,7 +155,14 @@ for i in range(num_frames):
     smpl_mesh = trimesh.Trimesh(
         frame_smpl_vertices, smpl_model.faces, process=False
     )
+
+    # Probably should use more sophisticated axis transformations than this...
+    rotation_matrix = trimesh.transformations.rotation_matrix(np.radians(180), [0, 0, 1])
+    smpl_mesh.apply_transform(rotation_matrix)
+    rotation_matrix = trimesh.transformations.rotation_matrix(np.radians(225), [0, 1, 0])
+    smpl_mesh.apply_transform(rotation_matrix)
     smpl_mesh.export(f"{output_dir}/{i:03d}_smpl.ply")
+
     smpl_vertices.append(frame_smpl_vertices)
 
 smpl_vertices = np.array(smpl_vertices)
@@ -182,6 +187,10 @@ print("Total conversions (including errors):", conversion_results.result_errors.
 for i, mesh in enumerate(conversion_results.result_meshes):
     # Save the results 
     #mesh.vertices /= 100.0 # This doesn't seem to do anything?
+    rotation_matrix = trimesh.transformations.rotation_matrix(np.radians(180), [0, 0, 1])
+    mesh.apply_transform(rotation_matrix)
+    rotation_matrix = trimesh.transformations.rotation_matrix(np.radians(225), [0, 1, 0])
+    mesh.apply_transform(rotation_matrix)
     mesh.export(f"{example_output_dir}/{i:03d}_result_mhr.obj")
 
 mhr_vertices, skeleton_state = mhr_model(conversion_results.result_parameters["identity_coeffs"], conversion_results.result_parameters["lbs_model_params"], conversion_results.result_parameters["face_expr_coeffs"])
