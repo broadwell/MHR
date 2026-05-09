@@ -109,6 +109,7 @@ from utils import (
 _NUM_VERTICES_SMPL = 6890
 _NUM_VERTICES_SMPLX = 10475
 
+#INFO is standard, DEBUG is detailed
 logging.basicConfig(level=logging.INFO) # PMB
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO) # PMB
@@ -288,6 +289,7 @@ class Conversion:
                 is_tracking,
                 exclude_expression=exclude_expression,
             )
+            print("reprocessing failure cases")
             # Reprocess failure cases by turning the fitting problem into a tracking problem.
             fitting_parameter_results, errors = self._s2m_reprocess_failure_cases(
                 fitting_parameter_results,
@@ -699,13 +701,17 @@ class Conversion:
             Boolean tensor mask indicating which parameters are identity-related.
         """
         scale_mask = self._mhr_model.character.parameter_transform.scaling_parameters
-        identity_blendshape_mask = torch.zeros_like(scale_mask)
+        # PMB
+        #identity_blendshape_mask = torch.zeros_like(scale_mask)
+        identity_blendshape_mask = torch.zeros_like(self._to_tensor(scale_mask))
         identity_blendshape_mask[
             _NUM_RIG_PARAMETERS : _NUM_RIG_PARAMETERS
             + self._mhr_model.get_num_identity_blendshapes()
         ] = True
 
-        identity_parameter_mask = (scale_mask + identity_blendshape_mask).to(
+        # PMB
+        #identity_parameter_mask = (scale_mask + identity_blendshape_mask).to(
+        identity_parameter_mask = (self._to_tensor(scale_mask) + identity_blendshape_mask).to(
             self._DEVICE
         )
         return identity_parameter_mask
@@ -885,7 +891,7 @@ class Conversion:
             if single_identity:
                 self.pymomentum_solver.set_constant_parameters(
                     identity_parameter_mask,
-                    average_fitting_parameter[identity_parameter_mask],
+                    average_fitting_parameter[identity_parameter_mask.bool()],
                 )
 
             self.pymomentum_solver.fit(

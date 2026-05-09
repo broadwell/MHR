@@ -8,12 +8,14 @@ import sys
 import joblib
 import torch
 
+sys.path.append("/srv/mime/software/momentum")
+
 from mhr.mhr import MHR
-import subprocess
 
 _OUTPUT_DIR = "./tmp_results"  # Directory to store conversion results
 
 if __name__ == "__main__":
+
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     mhr_model = MHR.from_files(lod=1, device=device)

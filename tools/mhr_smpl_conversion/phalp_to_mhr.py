@@ -96,6 +96,11 @@ smpl_parameters = {}
 global_orients = []
 betas = []
 body_poses = []
+
+# Coordinates from PHALP are in y-forward, z-down, x-right orientation relative 
+# to the camera initially. For the conversion model to work, the z axis must be 
+# flipped by inverting the Z values in the gobal_orients vectors.
+# Or we could try just swapping the Y and Z values in the body_pose vectors?
 for i, frame_image_id in enumerate(phalp_data):
     # This is where it could handle more than one pose per frame
     smpl_dict = phalp_data[frame_image_id]["smpl"][0]
@@ -110,14 +115,18 @@ for i, frame_image_id in enumerate(phalp_data):
     body_rvecs = []
 
     for body_pose in smpl_dict["body_pose"]:
+        #body_reordered = body_pose[:, [0, 2, 1]]
+
         rvec_back, _ = cv2.Rodrigues(body_pose)
+        #rvec_back, _ = cv2.Rodrigues(body_reordered)
         body_rvecs.append(rvec_back.T.tolist()[0])
 
     body_poses.append(body_rvecs)
 
     # What the heck is this (from original conversion.py)
     #body_poses.append(np.concatenate([body_rvecs[3:66], np.zeros_like(body_rvecs[:6])], axis=-1))
-
+    break
+ 
 smpl_parameters["betas"] = np.array(betas)
 smpl_parameters["global_orient"] = np.array(global_orients)
 smpl_parameters["body_pose"] = np.array(body_poses)
@@ -133,6 +142,7 @@ print("shape of betas", smpl_parameters["betas"].shape)
 
 smpl_vertices = []
 num_frames = smpl_parameters["body_pose"].shape[0]
+print("total frames:", num_frames)
 for i in range(num_frames):
     frame_smpl_vertices = (
         smpl_model(
@@ -213,15 +223,17 @@ try:
 except Exception as e:
     print(f"An error occurred when exporting to gltf: {e}")
 
-fbx_file = "./exported_animation.fbx"
-try:
-    mhr_model.save_to_fbx(
-        fbx_file,
-        conversion_results.result_parameters["identity_coeffs"],
-        conversion_results.result_parameters["lbs_model_params"],
-        conversion_results.result_parameters["face_expr_coeffs"],
-        fps=30,
-    )
-    print(f"Saved animation to {fbx_file}")
-except Exception as e:
-    print(f"An error occurred when exporting to fbx: {e}")
+# This has never worked, but GLB->FBX conversion with the C++ libraries for
+# Momentum seems to do the trick.
+#fbx_file = "./exported_animation.fbx"
+#try:
+#    mhr_model.save_to_fbx(
+#        fbx_file,
+#        conversion_results.result_parameters["identity_coeffs"],
+#        conversion_results.result_parameters["lbs_model_params"],
+#        conversion_results.result_parameters["face_expr_coeffs"],
+#        fps=30,
+#    )
+#    print(f"Saved animation to {fbx_file}")
+#except Exception as e:
+#    print(f"An error occurred when exporting to fbx: {e}")

@@ -162,7 +162,7 @@ class PyMomentumModelFitting:
             if stage.constant_parameter_mask is not None:
                 self.set_constant_parameters(
                     stage.constant_parameter_mask,
-                    self._solved_parameters.clone()[stage.constant_parameter_mask],
+                    self._solved_parameters.clone()[stage.constant_parameter_mask.bool()],
                 )
             # Restore the initial global rigid transform for the whole body.
             if "Stage 2" in stage.info:
@@ -171,6 +171,9 @@ class PyMomentumModelFitting:
             if skip_global_stages:
                 if "Stage 2" in stage.info or "Stage 3" in stage.info:
                     continue
+
+            # PMB
+            stage.active_parameter_mask = stage.active_parameter_mask.bool()
 
             stage.active_parameter_mask = (
                 stage.active_parameter_mask & ~self._constant_parameter_mask
@@ -261,7 +264,9 @@ class PyMomentumModelFitting:
         )
         if vertex_weight is None:
             vertex_weight_for_lbs = self._get_vertex_weight_from_parameter_mask(
-                lbs_mask, parameter2joints_mapping, skinning_weight_matrix
+                # PMB
+                #lbs_mask, parameter2joints_mapping, skinning_weight_matrix
+                lbs_mask.bool(), parameter2joints_mapping, skinning_weight_matrix
             )
             if blendshapes_vertex_mask is not None:
                 vertex_weight = vertex_weight_for_lbs + blendshapes_vertex_mask
@@ -288,7 +293,9 @@ class PyMomentumModelFitting:
             :_NUM_RIG_PARAMETERS
         ]
         parameter2joints_mapping = (
-            self._bs_character.parameter_transform.transform.numpy()
+            # PMB
+            #self._bs_character.parameter_transform.transform.numpy()
+            self._bs_character.parameter_transform.transform
             .reshape(-1, 7, len(self._bs_character.parameter_transform.names))
             .sum(1)
         )[..., :_NUM_RIG_PARAMETERS].astype(bool)
@@ -302,7 +309,9 @@ class PyMomentumModelFitting:
         stages: list[PyMomentumOptimizationStage] = []
 
         # Level 0: Face rigid transformation
-        lbs_mask = self._bs_character.parameter_transform.rigid_parameters.clone()[
+        # PMB
+        #lbs_mask = self._bs_character.parameter_transform.rigid_parameters.clone()[
+        lbs_mask = self._to_tensor(self._bs_character.parameter_transform.rigid_parameters).clone()[
             :_NUM_RIG_PARAMETERS
         ]
         for i, name in enumerate(lbs_parameter_names):
@@ -361,7 +370,9 @@ class PyMomentumModelFitting:
         )
         # Level 2: Body rigid transformations only
         lbs_mask = (
-            self._mhr_model.character.parameter_transform.rigid_parameters.clone()[
+            # PMB
+            #self._mhr_model.character.parameter_transform.rigid_parameters.clone()[
+            self._to_tensor(self._mhr_model.character.parameter_transform.rigid_parameters).clone()[
                 :_NUM_RIG_PARAMETERS
             ]
         )
